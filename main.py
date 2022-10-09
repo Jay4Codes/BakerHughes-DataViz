@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import datetime
 import streamlit as st
 from streamlit_folium import folium_static
 import folium
@@ -90,7 +89,7 @@ if rad1 == "Elevation":
 if rad1 == "Thermal Efficiency":
     st.title('Gas Turbine Baker Hughes')
 
-    st.subheader('Customer Plants Numbers')
+    st.subheader('Thermal Efficiency')
 
     downloaded_data_list_1 = os.listdir('data/PLANTS')
     plant_names = []
