@@ -6,6 +6,7 @@ from streamlit_folium import folium_static
 import folium
 import pydeck as pdk
 import leafmap.foliumap as leafmap
+import os
 
 st.set_page_config(
     page_title="Gas Turbine Baker Hughes",
@@ -14,12 +15,71 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 st.title('Gas Turbine Baker Hughes')
-selected_stock = st.text_input('Enter Your Plant Name')
-stocks = ('')
-selected_stock = st.selectbox('Plant Names', stocks)
 
-n_years = st.slider('Years of historical data:', 1, 10)
-period = n_years * 365
+st.subheader('Locate Plants')
+
+site_df = pd.read_csv(
+    './data/site_metadata-7fc535965d0c074cea0be6786fc9518e.csv')
+
+m = folium.Map(location=[site_df['LATITUDE'].mean(
+), site_df['LONGITUDE'].mean()], zoom_start=1, control_scale=True)
+for index, location_info in site_df.iterrows():
+    folium.Marker([location_info["LATITUDE"], location_info["LONGITUDE"]],
+                  popup=location_info["PLANT_NAME"]).add_to(m)
+
+folium_static(m)
+
+values = site_df['CUSTOMER_NAME'].value_counts().to_dict()
+
+chart_data = pd.DataFrame(list(values.values()), list(values.keys()))
+
+st.bar_chart(chart_data)
+
+ele_df = pd.DataFrame(
+    np.random.randn(40, 2) / [50, 50] + [37.76, -122.4],
+    columns=['lat', 'lon'])
+
+st.pydeck_chart(pdk.Deck(
+    map_style=None,
+    initial_view_state=pdk.ViewState(
+        latitude=37.76,
+        longitude=-122.4,
+        zoom=11,
+        pitch=50,
+    ),
+    layers=[
+        pdk.Layer(
+            'HexagonLayer',
+            data=ele_df,
+            get_position='[lon, lat]',
+            radius=200,
+            elevation_scale=4,
+            elevation_range=[0, 1000],
+            pickable=True,
+            extruded=True,
+        ),
+        pdk.Layer(
+            'ScatterplotLayer',
+            data=ele_df,
+            get_position='[lon, lat]',
+            get_color='[200, 30, 0, 160]',
+            get_radius=200,
+        ),
+    ],
+))
+
+downloaded_data_list_1 = os.listdir('data/PLANTS')
+plant_names = []
+for file in downloaded_data_list_1:
+    plant_names.append(file[:-4])
+
+selected_plant = st.selectbox('Plant Names', plant_names)
+
+plant_df = pd.read_csv(f'./data/PLANTS/{selected_plant}.csv')
+
+line_date = pd.DataFrame(plant_df['THERMAL_EFF'])
+
+line_df = plant_df['THERMAL_EFF']
 
 intervals = ('Daily', 'Weekly', 'Monthly', 'Quaterly')
 input = st.selectbox('Interval', intervals)
@@ -39,163 +99,22 @@ input_months = None
 input_months = st.number_input(
     'Enter No of previous Months Historical Data', min_value=0, max_value=12, value=0, step=1)
 
-if input_months == 0:
-    START = (datetime.date.today() - datetime.timedelta(period))
-else:
-    START = datetime.date.today() - datetime.timedelta(30*(input_months))
-TODAY = datetime.date.today() + datetime.timedelta(7)
-
-st.subheader('Raw Data')
-
-hide_table_row_index = """
-        <style>
-        tbody th {display:none}
-        .blank {display:none}
-        </style>
-        """
-
-st.markdown(hide_table_row_index, unsafe_allow_html=True)
-
-# st.table(data.tail())
-
-# def plot_raw_data():
-#     fig = go.Figure()
-#     fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], name='stock_close'))
-#     fig.layout.update(title_text=selected_stock, xaxis_rangeslider_visible=True)
-#     st.plotly_chart(fig)
-
-# plot_raw_data()
-
-# df = data.copy()
-
-# df.reset_index(inplace=True)
-
-# x_future = np.array(df.Close.rolling(7).mean()[-7:])
-
-# scale = max(x_future) - min(x_future)
-# minimum = min(x_future)
-
-# for i in range(0, len(x_future)):
-#     x_future[i] = (x_future[i] - minimum) / scale
-
-# x_future = np.reshape(x_future, (1, 7, 1))
-
-# y_future = []
-
-# while len(y_future) < 7:
-# #     Predicting future values using 7-day moving averages of the last day 7 days.
-#     p = model.predict(x_future)[0]
-
-# #     Appending the predicted value to y_future
-#     y_future.append(p)
-
-# #     Updating input variable, x_future
-#     x_future = np.roll(x_future, -1)
-#     x_future[-1] = p
-
-# y_future = np.array(y_future)
-# y_future = np.reshape(y_future, (7))
-
-# for i in range(0, len(y_future)):
-#     y_future[i] = (y_future[i] * scale) + minimum
-
-# y_future = np.reshape(y_future, (7, 1))
-
-# last7 = pd.DataFrame(df.Close[-7:])
-# last7.reset_index(drop=True, inplace=True)
-# y_future = pd.DataFrame(y_future, columns=['Close'])
-# predictions = pd.concat([last7, y_future], ignore_index=True)
-
-# prev_7 = datetime.date.today() - datetime.timedelta(7)
-# predictions['Date'] = [prev_7 + datetime.timedelta(x) for x in range(0, 14)]
-
-st.subheader('Predicted Data')
-
-hide_table_row_index = """
-        <style>
-        tbody th {display:none}
-        .blank {display:none}
-        </style>
-        """
-
-st.markdown(hide_table_row_index, unsafe_allow_html=True)
-
-# st.table(predictions[8:13])
-
-# def plot_predicted_data():
-#     fig = go.Figure()
-#     fig.add_trace(go.Scatter(x=data['Date'][-7:], y=data['Close'][-7:], name='current_stock_price'))
-
-#     fig.add_trace(go.Scatter(x=predictions['Date'][8:13], y=predictions['Close'][7:], name='predicted_stock_price'))
-#     fig.add_trace(go.Scatter(x=predictions['Date'][7:9], y=predictions['Close'][6:8], name = '--', mode='lines', line=dict(color='royalblue', width=4, dash='dot')))
-#     fig.layout.update(title_text = selected_stock, xaxis_rangeslider_visible=True)
-#     st.plotly_chart(fig)
-
-# plot_predicted_data()
-
-st.subheader('Locate Plants')
-
-site_df = pd.read_csv(
-    './data/site_metadata-7fc535965d0c074cea0be6786fc9518e.csv')
-
-m = folium.Map(location=[site_df['LATITUDE'].mean(
-), site_df['LONGITUDE'].mean()], zoom_start=1, control_scale=True)
-for index, location_info in site_df.iterrows():
-    folium.Marker([location_info["LATITUDE"], location_info["LONGITUDE"]],
-                  popup=location_info["PLANT_NAME"]).add_to(m)
-
-folium_static(m)
-
-values = site_df['CUSTOMER_NAME'].value_counts().to_dict()
-keys = list(values.keys())
-cust_val = list(values.values())
-
-chart_data = pd.DataFrame(list(values.values()), list(values.keys()))
-
-st.bar_chart(chart_data)
-
-df = pd.DataFrame(
-   np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-   columns=['lat', 'lon'])
-
-st.pydeck_chart(pdk.Deck(
-    map_style=None,
-    initial_view_state=pdk.ViewState(
-        latitude=37.76,
-        longitude=-122.4,
-        zoom=11,
-        pitch=50,
-    ),
-    layers=[
-        pdk.Layer(
-           'HexagonLayer',
-           data=df,
-           get_position='[lon, lat]',
-           radius=200,
-           elevation_scale=4,
-           elevation_range=[0, 1000],
-           pickable=True,
-           extruded=True,
-        ),
-        pdk.Layer(
-            'ScatterplotLayer',
-            data=df,
-            get_position='[lon, lat]',
-            get_color='[200, 30, 0, 160]',
-            get_radius=200,
-        ),
-    ],
-))
-
-st.line_chart(chart_data)
+st.area_chart(line_df)
 
 filepath = "https://raw.githubusercontent.com/giswqs/leafmap/master/examples/data/us_cities.csv"
 m = leafmap.Map(tiles="stamentoner")
+
+heat_df = pd.read_csv(
+    "https://raw.githubusercontent.com/giswqs/leafmap/master/examples/data/us_cities.csv")
+heat_df.drop(['name', 'sov_a3', "region"], axis=1, inplace=True)
+
+heat_map_df = site_df[['LATITUDE', 'LONGITUDE', 'FUEL_N2_MOL_PCT']]
+
 m.add_heatmap(
-    filepath,
-    latitude="latitude",
-    longitude="longitude",
-    value="pop_max",
+    heat_map_df,
+    latitude="LATITUDE",
+    longitude="LONGITUDE",
+    value="FUEL_N2_MOL_PCT",
     name="Heat map",
     radius=20,
 )
